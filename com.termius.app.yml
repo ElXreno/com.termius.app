@@ -1,0 +1,54 @@
+id: com.termius.app
+sdk: org.freedesktop.Sdk
+runtime: org.freedesktop.Platform
+runtime-version: '20.08'
+base: org.electronjs.Electron2.BaseApp
+base-version: '20.08'
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  - --share=network
+  - --system-talk-name=org.bluez
+command: termius-app
+separate-locales: false
+modules:
+
+  - name: termius
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 termius-app.sh /app/bin/termius-app
+      - install -Dm755 apply_extra.sh /app/bin/apply_extra
+      - install -Dm755 /usr/bin/desktop-file-edit -t /app/bin/
+      - install -Dm755 /usr/bin/ar /app/bin/ar
+      - install -Dm755 /usr/lib/$(gcc -print-multiarch)/libbfd-*.so -t /app/lib/
+    sources:
+
+      - type: script
+        dest-filename: termius-app.sh
+        commands:
+          - export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
+          - exec zypak-wrapper /app/extra/opt/Termius/termius-app "$@"
+      
+      - type: script
+        dest-filename: apply_extra.sh
+        commands:
+          - FLATPAK_ID=com.termius.app
+          - ar p termius.deb data.tar.xz | tar -xJf -
+          - mv usr export
+          - rm -rf termius.deb export/share/doc etc
+          - rename termius-app ${FLATPAK_ID} export/share/{icons/hicolor/*/*,applications}/termius-app.*
+          - desktop-file-edit
+                --set-key=Exec --set-value='termius-app %U'
+                --set-key=Icon --set-value=${FLATPAK_ID}
+                --set-key="X-Flatpak-RenamedFrom" --set-value="termius-app.desktop;"
+                "export/share/applications/${FLATPAK_ID}.desktop"
+
+      - type: extra-data
+        filename: termius.deb
+        url: https://autoupdate.termius.com/linux/Termius.deb
+        sha256: 1af96c371c8a7132d94773df69cb92410ef72affc621fa43ec037e0aa1ad3770
+        size: 65948238
+        only-arches:
+          - x86_64
